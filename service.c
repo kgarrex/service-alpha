@@ -67,25 +67,92 @@ struct WinService {
 
 struct ServiceContext{
 	HANDLE StopEvent;
-	void (*OnResumeService)(LPVOID);
-	void (*OnStopService)(LPVOID);
-	void (*OnPauseService)(LPVOID);
-	void (*OnInterrogateService)(LPVOID);
-	void (*OnShutdownService)(LPVOID);
-	void (*OnParamChange)(LPVOID);
-	void (*OnNetBindAdd)(LPVOID);
-	void (*OnNetBindRemove)(LPVOID);
-	void (*OnNetBindEnable)(LPVOID);
-	void (*OnNetBindDisable)(LPVOID);
-	void (*OnDeviceEvent)(LPVOID);
-	void (*OnHardwareProfileChange)(LPVOID);
-	void (*OnPowerEvent)(LPVOID);
-	void (*OnSessionChange)(LPVOID);
-	void (*OnTimeChange)(LPVOID);
-	void (*OnTriggerEvent)(LPVOID);
-	void (*OnUserModeReboot)(LPVOID);
-	void (*OnPreShutdown)(LPVOID);
+	void (*OnTimer)(void*);
+	void (*OnResumeService)(void*);
+	void (*OnStopService)(void*);
+	void (*OnPauseService)(void*);
+	void (*OnInterrogateService)(void*);
+	void (*OnShutdownService)(void*);
+	void (*OnParamChange)(void*);
+	void (*OnNetBindAdd)(void*);
+	void (*OnNetBindRemove)(void*);
+	void (*OnNetBindEnable)(void*);
+	void (*OnNetBindDisable)(void*);
+	void (*OnDeviceEvent)(void*);
+	void (*OnHardwareProfileChange)(void*);
+	void (*OnPowerEvent)(void*);
+	void (*OnSessionChange)(void*);
+	void (*OnTimeChange)(void*);
+	void (*OnTriggerEvent)(void*);
+	void (*OnUserModeReboot)(void*);
+	void (*OnPreShutdown)(void*);
 };
+
+enum SvcCtrlCodeEnum
+{
+	SvcCtrlCodeStart,
+	SvcCtrlCodeStop,
+	SvcCtrlCodeContinue,
+	SvcCtrlCodeTimer,
+};
+
+#define SERVICE_CONTROL_TIMER 128
+
+
+/*
+	case SIGABRT:
+	case SIGALRM:
+	case SIGBUS:
+	case SIGCHLD:
+	case SIGCONT:
+	case SIGKILL:
+	case SIGPOLL:
+	case SIGPWR:
+	case SIGQUIT:
+	case SIGSTOP:
+	case SIGTSTP:
+	case SIGTERM:
+*/
+
+
+int service_host_main()
+{
+	HANDLE timer_queue;
+	HANDLE timer;
+	int time_in_ms;
+	int result;
+
+	timer_queue = CreateTimerQueue();
+	
+	result = CreateTimerQueueTimer(&timer, timer_queue, callback, time_in_ms, time_in_ms, 0);  
+	if(!result){
+		printf("Error: CreateTimerQueueTimer failed\n");
+		return 0;
+	}
+
+	//Once the service is stopped, call DeleteTimerQueueTimer
+}
+
+void CALLBACK TimerCallback(PVOID param, BOOLEAN not_used)
+{
+	SERVICE_STATUS status;
+	struct ServiceContext * ctx = param;	
+
+	//ctx->OnTimer(0);
+	ControlService(hservice, SERVICE_CONTROL_TIMER, &status);
+}
+
+int service_handler(int code)
+{
+	switch(code)
+	{
+		case SvcCtrlCodeStart:
+		case SvcCtrlCodeStop:
+		case SvcCtrlCodeContinue:
+		case SvcCtrlCodeTimer:
+	}
+}
+
 
 DWORD WINAPI ServiceCtrlHandlerEx(DWORD ControlCode, DWORD EventType, LPVOID EventData, LPVOID Context)
 {
@@ -200,18 +267,17 @@ void ServiceName_ServiceMain(DWORD argc, LPTSTR argv[])
 	ctx.OnPreShutdown		= OnPreShutdown;
 
 	service_status.dwServiceType = SERVICE_WIN32_SHARE_PROCESS;
-	service_status.dwCurrentState = 
+	//service_status.dwCurrentState = 
 
 	ctx.StopEvent = CreateEventEx(0, 0, CREATE_EVENT_MANUAL_RESET, 0);
 	if(!ctx.StopEvent){
 		printf("CreateEventEx failed\n");
-	return;
+		return;
 	}
 
 	RegisterServiceCtrlHandlerEx("ServiceName", ServiceCtrlHandlerEx, &ctx);
 
 	WaitForSingleObject(ctx.StopEvent, INFINITE);
-	
 }
 
 struct ServiceDatabase {
@@ -237,7 +303,7 @@ void InstallService()
 		schandle,
 		"ServiceName",
 		"DisplayName",
-		DesiredAccess,
+		SERVICE_ALL_ACCESS,
 		ServiceType,
 		StartType,
 		ErrorControl,
