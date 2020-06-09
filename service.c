@@ -341,6 +341,16 @@ void registerService()
 	DispatchTable[idx].lpServiceProc = 0;
 }
 
+// for each service in a service host, load the shared library (the service) and call the 
+int servicehost_load_service()
+{
+	LoadLibrary();
+	GetProcAddress();
+
+	//dlopen();
+	//dlsym();
+}
+
 int main(int argc, char *argv[])
 {
 	if(!memcmp(argv[1], "install", 7)){
