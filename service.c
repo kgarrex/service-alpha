@@ -344,8 +344,19 @@ void registerService()
 // for each service in a service host, load the shared library (the service) and call the 
 int servicehost_load_service()
 {
-	LoadLibrary();
-	GetProcAddress();
+#if defined(WINDOWS)
+	HMODULE hlib;
+	void *proc;
+
+	hlib = LoadLibraryExA("filename", 0, 0);
+	if(!hlib){
+		//error: failed to load service	
+	}
+	proc = GetProcAddress(hlib, "procname");
+	if(!proc){
+		//error: failed to get proc address	
+	}
+#endif
 
 	//dlopen();
 	//dlsym();
