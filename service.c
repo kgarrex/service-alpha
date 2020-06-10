@@ -348,6 +348,9 @@ int servicehost_load_service()
 	HMODULE hlib;
 	void *proc;
 
+	//DLL Security: Before loading any service, should call SetCurrentDirectory to guard against missing Dll attacks
+	//Can set it back after the library has been loaded.
+
 	hlib = LoadLibraryExA("filename", 0, 0);
 	if(!hlib){
 		//error: failed to load service	
