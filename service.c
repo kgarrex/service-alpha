@@ -1,61 +1,10 @@
 
+#pragma comment(lib, "advapi32.lib")
+
+#include <windows.h>
+#include <stdio.h>
 
 #define MAX_SERVICE_COUNT 0x10
-
-
-static void OnResumeService(LPVOID)
-{}
-
-static void OnStopService(LPVOID)
-{}
-
-static void OnPauseService(LPVOID)
-{}
-
-static void OnInterrogateService(LPVOID)
-{}
-
-static void OnShutdownService(LPVOID)
-{}
-
-static void OnParamChange(LPVOID)
-{}
-
-static void OnNetBindAdd(LPVOID)
-{}
-
-static void OnNetBindRemove(LPVOID)
-{}
-
-static void OnNetBindEnable(LPVOID)
-{}
-
-static void OnNetBindDisable(LPVOID)
-{}
-
-static void OnDeviceEvent(LPVOID)
-{}
-
-static void OnHardwareProfileChange(LPVOID)
-{}
-
-static void OnPowerEvent(LPVOID)
-{}
-
-static void OnSessionChange(LPVOID)
-{}
-
-static void OnTimeChange(LPVOID)
-{}
-
-static void OnTriggerEvent(LPVOID)
-{}
-
-static void OnUserModeReboot(LPVOID)
-{}
-
-static void OnPreShutdown(LPVOID)
-{}
 
 
 struct WinService {
@@ -66,6 +15,7 @@ struct WinService {
 };
 
 struct ServiceContext{
+	HANDLE hservice; //handle to the service
 	HANDLE StopEvent;
 	void (*OnTimer)(void*);
 	void (*OnResumeService)(void*);
@@ -115,16 +65,27 @@ enum SvcCtrlCodeEnum
 */
 
 
+void CALLBACK TimerCallback(PVOID param, BOOLEAN not_used)
+{
+	SERVICE_STATUS status;
+	struct ServiceContext * ctx = param;	
+
+	//ctx->OnTimer(0);
+	ControlService(ctx->hservice, SERVICE_CONTROL_TIMER, &status);
+}
+
+
 int service_host_main()
 {
 	HANDLE timer_queue;
 	HANDLE timer;
 	int time_in_ms;
+	int time_to_elapse = 0;
 	int result;
 
 	timer_queue = CreateTimerQueue();
 	
-	result = CreateTimerQueueTimer(&timer, timer_queue, callback, time_in_ms, time_in_ms, 0);  
+	result = CreateTimerQueueTimer(&timer, timer_queue, TimerCallback, &time_to_elapse, time_in_ms, time_in_ms, 0);  
 	if(!result){
 		printf("Error: CreateTimerQueueTimer failed\n");
 		return 0;
@@ -133,23 +94,16 @@ int service_host_main()
 	//Once the service is stopped, call DeleteTimerQueueTimer
 }
 
-void CALLBACK TimerCallback(PVOID param, BOOLEAN not_used)
-{
-	SERVICE_STATUS status;
-	struct ServiceContext * ctx = param;	
-
-	//ctx->OnTimer(0);
-	ControlService(hservice, SERVICE_CONTROL_TIMER, &status);
-}
-
 int service_handler(int code)
 {
 	switch(code)
 	{
+		/*
 		case SvcCtrlCodeStart:
 		case SvcCtrlCodeStop:
 		case SvcCtrlCodeContinue:
 		case SvcCtrlCodeTimer:
+		*/
 	}
 }
 
@@ -162,82 +116,84 @@ DWORD WINAPI ServiceCtrlHandlerEx(DWORD ControlCode, DWORD EventType, LPVOID Eve
 
 	case SERVICE_CONTROL_STOP:
 		//SERVICE_STOP_PENDING
-		ctx->OnStopService();
+		ctx->OnStopService(0);
 		SetEvent(ctx->StopEvent);
 	//SERVICE_STOPPED
 		break;
 
 	case SERVICE_CONTROL_PAUSE:
 		//SERVICE_PAUSE_PENDING
-		ctx->OnPauseService();
+		ctx->OnPauseService(0);
 	//SERVICE_PAUSED
 		break;
 
 	case SERVICE_CONTROL_CONTINUE:
 		//SERVICE_CONTINUE_PENDING
-		ctx->OnResumeService();
+		ctx->OnResumeService(0);
 	//SERVICE_RUNNING
 		break;
 
-	case SERVICE_CONTROL_INTERRORGATE:
-		ctx->OnInterrogateService();
+	case SERVICE_CONTROL_INTERROGATE:
+		ctx->OnInterrogateService(0);
 		break;
 
 	case SERVICE_CONTROL_SHUTDOWN: 
-		ctx->OnShutdownService();
+		ctx->OnShutdownService(0);
 		break;
 
 	case SERVICE_CONTROL_PARAMCHANGE:
-		ctx->OnParamChange();
+		ctx->OnParamChange(0);
 		break;
 
 	case SERVICE_CONTROL_NETBINDADD:
-		ctx->OnNetBindAdd();
+		ctx->OnNetBindAdd(0);
 		break;
 
 	case SERVICE_CONTROL_NETBINDREMOVE:
-		ctx->OnNetBindRemove();
+		ctx->OnNetBindRemove(0);
 		break;
 
 	case SERVICE_CONTROL_NETBINDENABLE:
-		ctx->OnNetBindEnable();
+		ctx->OnNetBindEnable(0);
 		break;
 
 	case SERVICE_CONTROL_NETBINDDISABLE:
-		ctx->OnNetBindDisable();
+		ctx->OnNetBindDisable(0);
 		break;
 
 	case SERVICE_CONTROL_DEVICEEVENT:
-		ctx->OnDeviceEvent();
+		ctx->OnDeviceEvent(0);
 		break;
 
 	case SERVICE_CONTROL_HARDWAREPROFILECHANGE:
-		ctx->OnHardwareProfileChange();
+		ctx->OnHardwareProfileChange(0);
 		break;
 
 	case SERVICE_CONTROL_POWEREVENT:
-		ctx->OnPowerEvent();
+		ctx->OnPowerEvent(0);
 		break;
 
 	case SERVICE_CONTROL_SESSIONCHANGE:
-		ctx->OnSessionChange();
-		break;
-
-	case SERVICE_CONTROL_TIMECHANGE:
-		ctx->OnTimeChange();
-		break;
-
-	case SERVICE_CONTROL_TRIGGEREVENT:
-		ctx->OnTriggerEvent();
-		break;
-
-	case SERVICE_CONTROL_USERMODEREBOOT:
-		ctx->OnUserModeReboot();
+		ctx->OnSessionChange(0);
 		break;
 
 	case SERVICE_CONTROL_PRESHUTDOWN:
-		ctx->OnPreShutdown();
+		ctx->OnPreShutdown(0);
 		break;
+
+	case SERVICE_CONTROL_TIMECHANGE:
+		ctx->OnTimeChange(0);
+		break;
+
+	case SERVICE_CONTROL_TRIGGEREVENT:
+		ctx->OnTriggerEvent(0);
+		break;
+
+	/*
+	case SERVICE_CONTROL_USER_LOGOFF: 
+	case SERVICE_CONTROL_LOWRESOURCES:
+	case SERVICE_CONTROL_SYSTEMLOWRESOURCES:
+	*/
 
 	}
 }
@@ -247,7 +203,8 @@ void ServiceName_ServiceMain(DWORD argc, LPTSTR argv[])
 	struct ServiceContext ctx;
 	SERVICE_STATUS service_status;
 
-	ctx.OnResumService		= OnResumeService;
+	/*
+	ctx.OnResumeService		= OnResumeService;
 	ctx.OnStopService		= OnStopService;
 	ctx.OnPauseService		= OnPauseService;
 	ctx.OnInterrogateService	= OnInterrogateService;
@@ -265,6 +222,7 @@ void ServiceName_ServiceMain(DWORD argc, LPTSTR argv[])
 	ctx.OnTriggerChange		= OnTriggerChange;
 	ctx.OnUserModeReboot		= OnUserModeReboot;
 	ctx.OnPreShutdown		= OnPreShutdown;
+	*/
 
 	service_status.dwServiceType = SERVICE_WIN32_SHARE_PROCESS;
 	//service_status.dwCurrentState = 
@@ -282,7 +240,7 @@ void ServiceName_ServiceMain(DWORD argc, LPTSTR argv[])
 
 struct ServiceDatabase {
 	SC_HANDLE schSCManager;
-}
+};
 
 void getValueFromConfig()
 {}
@@ -300,19 +258,19 @@ void InstallService()
 	}
 	
 	sch_service = CreateService(
-		schandle,
+		sch_scmanager,
 		"ServiceName",
 		"DisplayName",
 		SERVICE_ALL_ACCESS,
-		ServiceType,
-		StartType,
-		ErrorControl,
-		BinaryPathName,
-		LoadOrderGroup,
-		TagId,
-		Dependencies,
-		ServiceStartName,
-		Password
+		SERVICE_WIN32_OWN_PROCESS, //or SERVICE_USER_SHARE_PROCESS
+		SERVICE_DEMAND_START, //or SERVICE_AUTO_START
+		SERVICE_ERROR_NORMAL,
+		"BinaryPathName",
+		"LoadOrderGroup",
+		0, //TagId,
+		0, //Dependencies,
+		0, //ServiceStartName,
+		0  //Password
 	);
 
 	if(!sch_service){
@@ -327,6 +285,8 @@ void InstallService()
 
 void registerService()
 {
+	int idx;
+
 	SERVICE_TABLE_ENTRY DispatchTable[MAX_SERVICE_COUNT];
 
 	if(idx == MAX_SERVICE_COUNT){
@@ -335,7 +295,7 @@ void registerService()
 	}
 
 	DispatchTable[idx].lpServiceName = "ServiceName";
-	DispatchTable[idx].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)ServiceMain_ServiceMain;
+	DispatchTable[idx].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)ServiceName_ServiceMain;
 	idx++;
 	DispatchTable[idx].lpServiceName = 0;
 	DispatchTable[idx].lpServiceProc = 0;
@@ -373,5 +333,5 @@ int main(int argc, char *argv[])
 	}
 
 	 
-	StartServiceCtrlDispatcher(DispatchTable);
+	//StartServiceCtrlDispatcher(DispatchTable);
 }
