@@ -4,6 +4,14 @@
 #include <windows.h>
 #include <stdio.h>
 
+
+#if defined(_WIN32) || defined(_WIN64)
+	#define SERVICE_WINDOWS
+#elif defined(__linux__)  // && !__ANDROID__
+	#define SERVICE_LINUX
+#endif
+
+
 #define MAX_SERVICE_COUNT 0x10
 
 
@@ -18,6 +26,7 @@ struct ServiceContext{
 	HANDLE hservice; //handle to the service
 	HANDLE StopEvent;
 	void (*OnTimer)(void*);
+	void (*OnStart)(void*);
 	void (*OnResumeService)(void*);
 	void (*OnStopService)(void*);
 	void (*OnPauseService)(void*);
@@ -79,7 +88,7 @@ int service_host_main()
 {
 	HANDLE timer_queue;
 	HANDLE timer;
-	int time_in_ms;
+	int time_in_ms = 0;
 	int time_to_elapse = 0;
 	int result;
 
@@ -92,6 +101,7 @@ int service_host_main()
 	}
 
 	//Once the service is stopped, call DeleteTimerQueueTimer
+	return 1;
 }
 
 int service_handler(int code)
@@ -105,8 +115,26 @@ int service_handler(int code)
 		case SvcCtrlCodeTimer:
 		*/
 	}
+	return 0;
 }
 
+void get_events_from_lib(struct ServiceContext* ctx)
+{
+	char *libpath = 0;
+	void *proc = 0;
+
+	//get library path from config
+	
+	proc = GetProcAddress(hlib, "OnStart");
+	if(!proc){
+		//error: failed to get proc address	
+	}
+	proc = GetProcAddress(hlib, "OnStop");
+	proc = GetProcAddress(hlib, "OnPause");
+	proc = GetProcAddress(hlib, "OnResume");
+	proc = GetProcAddress(hlib, "OnTimer");
+
+}
 
 DWORD WINAPI ServiceCtrlHandlerEx(DWORD ControlCode, DWORD EventType, LPVOID EventData, LPVOID Context)
 {
@@ -196,6 +224,8 @@ DWORD WINAPI ServiceCtrlHandlerEx(DWORD ControlCode, DWORD EventType, LPVOID Eve
 	*/
 
 	}
+
+	return NO_ERROR;
 }
 
 void ServiceName_ServiceMain(DWORD argc, LPTSTR argv[])
@@ -285,7 +315,7 @@ void InstallService()
 
 void registerService()
 {
-	int idx;
+	int idx = 0;
 
 	SERVICE_TABLE_ENTRY DispatchTable[MAX_SERVICE_COUNT];
 
@@ -304,25 +334,27 @@ void registerService()
 // for each service in a service host, load the shared library (the service) and call the 
 int servicehost_load_service()
 {
-#if defined(WINDOWS)
+#if defined(SERVICE_WINDOWS)
 	HMODULE hlib;
-	void *proc;
 
 	//DLL Security: Before loading any service, should call SetCurrentDirectory to guard against missing Dll attacks
 	//Can set it back after the library has been loaded.
 
+	//get libary filename from config
+	
 	hlib = LoadLibraryExA("filename", 0, 0);
 	if(!hlib){
 		//error: failed to load service	
 	}
-	proc = GetProcAddress(hlib, "procname");
-	if(!proc){
-		//error: failed to get proc address	
-	}
+
+	get_events_from_lib(0);
+	
 #endif
 
 	//dlopen();
 	//dlsym();
+
+	return 0;
 }
 
 int main(int argc, char *argv[])
