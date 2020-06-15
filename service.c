@@ -6,9 +6,9 @@
 
 
 #if defined(_WIN32) || defined(_WIN64)
-	#define SERVICE_WINDOWS
+#define WINDOWS_SERVICE 
 #elif defined(__linux__)  // && !__ANDROID__
-	#define SERVICE_LINUX
+#define LINUX_SERVICE 
 #endif
 
 
@@ -23,8 +23,15 @@ struct WinService {
 };
 
 struct ServiceContext{
+
+#if defined(WINDOWS_SERVICE)
+	HANDLE hlib;
 	HANDLE hservice; //handle to the service
 	HANDLE StopEvent;
+#elif defined(LINUX_SERVICE)
+	void *lib;
+#endif
+
 	void (*OnTimer)(void*);
 	void (*OnStart)(void*);
 	void (*OnResumeService)(void*);
@@ -118,22 +125,45 @@ int service_handler(int code)
 	return 0;
 }
 
+
+const char *proc_names[] =
+{
+	"OnStart",
+	"OnStop",
+	"OnPause",
+	"OnResume",
+	"OnTimer"
+};
+
+
+void *get_proc_address(void *param, const char *procname)
+{
+	void *proc = 0;
+
+	struct ServiceContext *ctx = param;
+#if defined(WINDOWS_SERVICE)
+	proc = GetProcAddress(ctx->hlib, procname);
+#elif defined(LINUX_SERVICE)
+	proc = dlsym(ctx->lib, procname);
+#endif
+
+	if(!proc){} //error
+
+	return proc;
+}
+
+
 void get_events_from_lib(struct ServiceContext* ctx)
 {
 	char *libpath = 0;
 	void *proc = 0;
 
-	//get library path from config
 	
-	proc = GetProcAddress(hlib, "OnStart");
-	if(!proc){
-		//error: failed to get proc address	
+	for(int i = 0; i < (sizeof(proc_names) / sizeof(proc_names[0])); i++)
+	{
+		get_proc_address(ctx, proc_names[i]);
 	}
-	proc = GetProcAddress(hlib, "OnStop");
-	proc = GetProcAddress(hlib, "OnPause");
-	proc = GetProcAddress(hlib, "OnResume");
-	proc = GetProcAddress(hlib, "OnTimer");
-
+	
 }
 
 DWORD WINAPI ServiceCtrlHandlerEx(DWORD ControlCode, DWORD EventType, LPVOID EventData, LPVOID Context)
@@ -334,7 +364,7 @@ void registerService()
 // for each service in a service host, load the shared library (the service) and call the 
 int servicehost_load_service()
 {
-#if defined(SERVICE_WINDOWS)
+#if defined(WINDOWS_SERVICE)
 	HMODULE hlib;
 
 	//DLL Security: Before loading any service, should call SetCurrentDirectory to guard against missing Dll attacks
