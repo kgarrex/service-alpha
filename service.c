@@ -31,6 +31,8 @@ struct ServiceContext{
 	HANDLE hservice; //handle to the service
 	HANDLE StopEvent;
 	SERVICE_TABLE_ENTRY dispatch_table[MAX_SERVICE_COUNT];
+	SERVICE_STATUS svc_status;
+	SERVICE_STATUS_HANDLE svc_status_handle;
 #elif defined(LINUX_SERVICE)
 	void *lib;
 #endif
@@ -82,6 +84,11 @@ enum SvcCtrlCodeEnum
 	case SIGTSTP:
 	case SIGTERM:
 */
+
+
+//Global variables
+SC_HANDLE sch_scmanager;
+
 
 
 void CALLBACK TimerCallback(PVOID param, BOOLEAN not_used)
@@ -269,9 +276,23 @@ DWORD WINAPI ServiceCtrlHandlerEx(DWORD ControlCode, DWORD EventType, LPVOID Eve
 	return NO_ERROR;
 }
 
-void report_service_status(int cur_state, int exit_code, int wait_hint)
+void report_service_status(struct ServiceContext *ctx, int cur_state, int exit_code, int wait_hint)
 {
-	SetServiceStatus();
+	static DWORD dwCheckPoint = 1;
+
+	ctx->svc_status.dwCurrentState = cur_state;
+	ctx->svc_status.dwWin32ExitCode = exit_code;
+	ctx->svc_status.dwWaitHint = wait_hint;
+
+	if(cur_state == SERVICE_START_PENDING)
+		ctx->svc_status.dwControlsAccepted = 0;
+	else ctx->svc_status.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+
+	if((cur_state == SERVICE_RUNNING) || (cur_state == SERVICE_STOPPED))
+		ctx->svc_status.dwCheckPoint = 0;
+	else ctx->svc_status.dwCheckPoint = dwCheckPoint++;
+
+	SetServiceStatus(ctx->svc_status_handle, &ctx->svc_status);
 }
 
 void ServiceName_ServiceMain(DWORD argc, LPTSTR argv[])
@@ -280,26 +301,6 @@ void ServiceName_ServiceMain(DWORD argc, LPTSTR argv[])
 	struct ServiceContext ctx;
 	SERVICE_STATUS service_status;
 
-	/*
-	ctx.OnResumeService		= OnResumeService;
-	ctx.OnStopService		= OnStopService;
-	ctx.OnPauseService		= OnPauseService;
-	ctx.OnInterrogateService	= OnInterrogateService;
-	ctx.OnShutdownService		= OnShutdownService;
-	ctx.OnParamChange		= OnParamChange;
-	ctx.OnNetBindAdd		= OnNetBindAdd;
-	ctx.OnNetBindRemove		= OnNetBindRemove;
-	ctx.OnNetBindEnable		= OnNetBindEnable;
-	ctx.OnNetBindDisable		= OnNetBindDisable;
-	ctx.OnDeviceEvent		= OnDeviceEvent;
-	ctx.OnHardwareProfileChange 	= OnHardwareProfileChange;
-	ctx.OnPowerEvent		= OnPowerEvent;
-	ctx.OnSessionChange		= OnSessionChange;
-	ctx.OnTimeChange		= OnTimeChange;
-	ctx.OnTriggerChange		= OnTriggerChange;
-	ctx.OnUserModeReboot		= OnUserModeReboot;
-	ctx.OnPreShutdown		= OnPreShutdown;
-	*/
 
 	service_status.dwServiceType = SERVICE_WIN32_SHARE_PROCESS;
 	//service_status.dwCurrentState = 
@@ -310,7 +311,7 @@ void ServiceName_ServiceMain(DWORD argc, LPTSTR argv[])
 		return;
 	}
 
-	svc_status_handle = RegisterServiceCtrlHandlerEx("ServiceName", ServiceCtrlHandlerEx, &ctx);
+	ctx.svc_status_handle = RegisterServiceCtrlHandlerEx("ServiceName", ServiceCtrlHandlerEx, &ctx);
 
 	WaitForSingleObject(ctx.StopEvent, INFINITE);
 }
@@ -325,7 +326,6 @@ void getValueFromConfig()
 
 void InstallService()
 {
-	SC_HANDLE sch_scmanager;
 	SC_HANDLE sch_service;
 
 	sch_scmanager = OpenSCManager(0, SERVICES_ACTIVE_DATABASE, SC_MANAGER_ALL_ACCESS);
@@ -352,7 +352,7 @@ void InstallService()
 
 	if(!sch_service){
 		printf("CreateService failed\n");
-	return;
+		return;
 	}
 	printf("Service installed successfully\n");
 
@@ -396,11 +396,12 @@ int servicehost_load_service()
 
 	get_events_from_lib(0);
 	
+#elif defined(LINUX_SERVICE)
+	void *lib;
+
+	lib = dlopen("filename", 0);
+
 #endif
-
-	//dlopen();
-	//dlsym();
-
 	return 0;
 }
 
