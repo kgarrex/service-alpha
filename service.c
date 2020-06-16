@@ -24,10 +24,13 @@ struct WinService {
 
 struct ServiceContext{
 
+	int svc_idx;
+
 #if defined(WINDOWS_SERVICE)
 	HANDLE hlib;
 	HANDLE hservice; //handle to the service
 	HANDLE StopEvent;
+	SERVICE_TABLE_ENTRY dispatch_table[MAX_SERVICE_COUNT];
 #elif defined(LINUX_SERVICE)
 	void *lib;
 #endif
@@ -135,16 +138,24 @@ const char *proc_names[] =
 	"OnTimer"
 };
 
-
-void *get_proc_address(void *param, const char *procname)
+struct get_proc_params
 {
+	const char *procname;
+};
+
+#define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
+
+
+void *get_proc_address(void *context, const void *params)
+{
+	struct get_proc_params *p = params;
 	void *proc = 0;
 
-	struct ServiceContext *ctx = param;
+	struct ServiceContext *ctx = context;
 #if defined(WINDOWS_SERVICE)
-	proc = GetProcAddress(ctx->hlib, procname);
+	proc = GetProcAddress(ctx->hlib, p->procname);
 #elif defined(LINUX_SERVICE)
-	proc = dlsym(ctx->lib, procname);
+	proc = dlsym(ctx->lib, p->procname);
 #endif
 
 	if(!proc){} //error
@@ -152,18 +163,18 @@ void *get_proc_address(void *param, const char *procname)
 	return proc;
 }
 
-
 void get_events_from_lib(struct ServiceContext* ctx)
 {
 	char *libpath = 0;
 	void *proc = 0;
+	struct get_proc_params params;
 
 	
-	for(int i = 0; i < (sizeof(proc_names) / sizeof(proc_names[0])); i++)
+	for(int i = 0; i < ARRAY_SIZE(proc_names); i++)
 	{
-		get_proc_address(ctx, proc_names[i]);
+		params.procname = proc_names[i];
+		get_proc_address(ctx, &params);
 	}
-	
 }
 
 DWORD WINAPI ServiceCtrlHandlerEx(DWORD ControlCode, DWORD EventType, LPVOID EventData, LPVOID Context)
@@ -258,8 +269,14 @@ DWORD WINAPI ServiceCtrlHandlerEx(DWORD ControlCode, DWORD EventType, LPVOID Eve
 	return NO_ERROR;
 }
 
+void report_service_status(int cur_state, int exit_code, int wait_hint)
+{
+	SetServiceStatus();
+}
+
 void ServiceName_ServiceMain(DWORD argc, LPTSTR argv[])
 {
+	SERVICE_STATUS_HANDLE svc_status_handle;
 	struct ServiceContext ctx;
 	SERVICE_STATUS service_status;
 
@@ -293,7 +310,7 @@ void ServiceName_ServiceMain(DWORD argc, LPTSTR argv[])
 		return;
 	}
 
-	RegisterServiceCtrlHandlerEx("ServiceName", ServiceCtrlHandlerEx, &ctx);
+	svc_status_handle = RegisterServiceCtrlHandlerEx("ServiceName", ServiceCtrlHandlerEx, &ctx);
 
 	WaitForSingleObject(ctx.StopEvent, INFINITE);
 }
@@ -343,22 +360,22 @@ void InstallService()
 	CloseServiceHandle(sch_scmanager);
 }
 
-void registerService()
+void registerService(struct ServiceContext *ctx)
 {
-	int idx = 0;
-
-	SERVICE_TABLE_ENTRY DispatchTable[MAX_SERVICE_COUNT];
+	int idx = ctx->svc_idx;
 
 	if(idx == MAX_SERVICE_COUNT){
 		//error: too many services 
 		return;
 	}
 
-	DispatchTable[idx].lpServiceName = "ServiceName";
-	DispatchTable[idx].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)ServiceName_ServiceMain;
+	ctx->dispatch_table[idx].lpServiceName = "ServiceName";
+	ctx->dispatch_table[idx].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)ServiceName_ServiceMain;
 	idx++;
-	DispatchTable[idx].lpServiceName = 0;
-	DispatchTable[idx].lpServiceProc = 0;
+	ctx->dispatch_table[idx].lpServiceName = 0;
+	ctx->dispatch_table[idx].lpServiceProc = 0;
+
+	ctx->svc_idx = idx;
 }
 
 // for each service in a service host, load the shared library (the service) and call the 
@@ -393,6 +410,8 @@ int main(int argc, char *argv[])
 		InstallService();
 		return; 
 	}
+
+	struct ServiceContext context;
 
 	 
 	//StartServiceCtrlDispatcher(DispatchTable);
