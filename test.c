@@ -1,8 +1,8 @@
 
-#pragma comment(lib, "service.lib") 
+#pragma comment(lib, "svchost.lib") 
 
 int main(int argc, char **argv)
 {
-	servicehost_init(argc, argv);
+	svchost_main(argc, argv);
 	return 1;
 }

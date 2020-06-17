@@ -406,8 +406,11 @@ int load_service()
 }
 
 
+/**
+** @param
+**/
 
-SERVICEHOST_EXPORT void servicehost_init(int argc, char *argv[])
+SERVICEHOST_EXPORT void svchost_main(int argc, char *argv[])
 {
 
 	if(argc > 1){
@@ -422,6 +425,7 @@ SERVICEHOST_EXPORT void servicehost_init(int argc, char *argv[])
 
 	//loop through each service in the config
 	//registerService(&context, svc_name);
+	
 
 	 
 	printf("Hello World %d\n", argc-1);
