@@ -13,7 +13,7 @@
 
 
 #define MAX_SERVICE_COUNT 0x10
-
+#define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
 
 struct WinService {
 	int start;
@@ -30,7 +30,6 @@ struct ServiceContext{
 	HANDLE hlib;
 	HANDLE hservice; //handle to the service
 	HANDLE StopEvent;
-	SERVICE_TABLE_ENTRY dispatch_table[MAX_SERVICE_COUNT];
 	SERVICE_STATUS svc_status;
 	SERVICE_STATUS_HANDLE svc_status_handle;
 #elif defined(LINUX_SERVICE)
@@ -88,7 +87,7 @@ enum SvcCtrlCodeEnum
 
 //Global variables
 SC_HANDLE sch_scmanager;
-
+SERVICE_TABLE_ENTRY dispatch_table[MAX_SERVICE_COUNT];
 
 
 void CALLBACK TimerCallback(PVOID param, BOOLEAN not_used)
@@ -150,7 +149,6 @@ struct get_proc_params
 	const char *procname;
 };
 
-#define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
 
 
 void *get_proc_address(void *context, const void *params)
@@ -360,26 +358,24 @@ void InstallService()
 	CloseServiceHandle(sch_scmanager);
 }
 
-void registerService(struct ServiceContext *ctx)
+void registerService(struct ServiceContext *ctx, const char *svc_name)
 {
-	int idx = ctx->svc_idx;
+	static int idx = 0; 
 
 	if(idx == MAX_SERVICE_COUNT){
 		//error: too many services 
 		return;
 	}
 
-	ctx->dispatch_table[idx].lpServiceName = "ServiceName";
-	ctx->dispatch_table[idx].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)ServiceName_ServiceMain;
+	dispatch_table[idx].lpServiceName = svc_name; 
+	dispatch_table[idx].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)ServiceName_ServiceMain;
 	idx++;
-	ctx->dispatch_table[idx].lpServiceName = 0;
-	ctx->dispatch_table[idx].lpServiceProc = 0;
-
-	ctx->svc_idx = idx;
+	dispatch_table[idx].lpServiceName = 0;
+	dispatch_table[idx].lpServiceProc = 0;
 }
 
 // for each service in a service host, load the shared library (the service) and call the 
-int servicehost_load_service()
+int load_service()
 {
 #if defined(WINDOWS_SERVICE)
 	HMODULE hlib;
@@ -414,6 +410,9 @@ int main(int argc, char *argv[])
 
 	struct ServiceContext context;
 
+	//loop through each service in the config
+	//registerService(&context, svc_name);
+
 	 
-	//StartServiceCtrlDispatcher(DispatchTable);
+	StartServiceCtrlDispatcher(dispatch_table);
 }
