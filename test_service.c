@@ -1,9 +1,10 @@
-int OnStart()
+
+__declspec(dllexport) int OnStart()
 {
 	return 0;
 }
 
-int OnStop()
+__declspec(dllexport) int OnStop()
 {
 	return 0;
 }

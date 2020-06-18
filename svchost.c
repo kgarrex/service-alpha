@@ -4,7 +4,7 @@
 #include <windows.h>
 #include <stdio.h>
 
-
+#include "jsmn\jsmn.h"
 
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -89,9 +89,15 @@ enum SvcCtrlCodeEnum
 */
 
 
-//Global variables
+/**
+** Global Variables
+*/
 SC_HANDLE sch_scmanager;
 SERVICE_TABLE_ENTRY dispatch_table[MAX_SERVICE_COUNT];
+
+jsmn_parser parser;
+jsmntok_t tokens[10];
+
 
 
 void CALLBACK TimerCallback(PVOID param, BOOLEAN not_used)
@@ -405,6 +411,42 @@ int load_service()
 	return 0;
 }
 
+const char *json_string = "{\"hello\":\"world\"}";
+
+
+/**
+** Get the path of the current executing binary
+**/
+
+void get_bin_path(char buf[], int bufsize)
+{
+#if defined(WINDOWS_SERVICE)
+	DWORD length;
+	char *n;
+
+	length = GetModuleFileName(0, buf, bufsize);
+	if(!length){
+		printf("GetModuleFileName failed\n");	
+		return;
+	}
+
+	n = buf+length-1;
+
+	for(int i = length; i; i--){
+		n--;
+		if(*n == '\\') break;	
+	}
+	*n = '\0';
+#elif defined(LINUX_SERVICE)
+#endif
+}
+
+
+void load_config_file()
+{
+		
+}
+
 
 /**
 ** @param
@@ -418,7 +460,6 @@ SERVICEHOST_EXPORT void svchost_main(int argc, char *argv[])
 			InstallService();
 			return; 
 		}
-
 	}
 
 	struct ServiceContext context;
@@ -426,9 +467,24 @@ SERVICEHOST_EXPORT void svchost_main(int argc, char *argv[])
 	//loop through each service in the config
 	//registerService(&context, svc_name);
 	
+	//jsmn_init(&parser);
 
+
+	//jsmn_parse(&parser, json_string, strlen(json_string), tokens, 10);
+
+	char n[8];
+
+	//n = json_string + tokens[0].start;
+	//printf("Here %s\n", 2, n);
+
+	char buf[256];
+
+
+	//get the binary and look for the config file here
+	get_bin_path(buf, 256);
+
+	printf("path: %s\n", buf);
 	 
-	printf("Hello World %d\n", argc-1);
 
 	//StartServiceCtrlDispatcher(dispatch_table);
 
