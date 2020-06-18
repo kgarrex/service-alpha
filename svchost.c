@@ -19,6 +19,12 @@
 #define MAX_SERVICE_COUNT 0x10
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
 
+
+/**
+ ** Typedefs
+**/
+typedef jsmn_parser svchost_json_document_t;
+
 struct WinService {
 	int start;
 	int type;
@@ -95,7 +101,8 @@ enum SvcCtrlCodeEnum
 SC_HANDLE sch_scmanager;
 SERVICE_TABLE_ENTRY dispatch_table[MAX_SERVICE_COUNT];
 
-jsmn_parser parser;
+
+svchost_json_document_t json_doc;
 jsmntok_t tokens[10];
 
 
@@ -303,6 +310,7 @@ void report_service_status(struct ServiceContext *ctx, int cur_state, int exit_c
 	SetServiceStatus(ctx->svc_status_handle, &ctx->svc_status);
 }
 
+
 void ServiceName_ServiceMain(DWORD argc, LPTSTR argv[])
 {
 	SERVICE_STATUS_HANDLE svc_status_handle;
@@ -323,6 +331,7 @@ void ServiceName_ServiceMain(DWORD argc, LPTSTR argv[])
 
 	WaitForSingleObject(ctx.StopEvent, INFINITE);
 }
+
 
 struct ServiceDatabase {
 	SC_HANDLE schSCManager;
@@ -367,6 +376,7 @@ void InstallService()
 	CloseServiceHandle(sch_service);
 	//CloseServiceHandle(sch_scmanager);
 }
+
 
 void registerService(struct ServiceContext *ctx, const char *svc_name)
 {
@@ -414,37 +424,92 @@ int load_service()
 const char *json_string = "{\"hello\":\"world\"}";
 
 
-/**
-** Get the path of the current executing binary
-**/
 
-void get_bin_path(char buf[], int bufsize)
+
+/**
+ * @brief Get the file name of the current executing
+ *        svchost binary 
+**/
+int svchost_filename(char buf[], int bufsize)
 {
 #if defined(WINDOWS_SERVICE)
 	DWORD length;
 	char *n;
+	char fullpath[256];
 
-	length = GetModuleFileName(0, buf, bufsize);
-	if(!length){
-		printf("GetModuleFileName failed\n");	
-		return;
-	}
+	length = GetModuleFileName(0, fullpath, 256);
 
-	n = buf+length-1;
-
+	n = fullpath+length-1;
 	for(int i = length; i; i--){
-		n--;
-		if(*n == '\\') break;	
+		n--;	
+		if(*n == '\\'){ n++; break; }
 	}
-	*n = '\0';
+	length = length - (int)(n-fullpath);
+	memcpy(buf, n, length);
+	buf[length] = '\0';
+	return length;
 #elif defined(LINUX_SERVICE)
 #endif
 }
 
 
-void load_config_file()
+/**
+** @brief Get the path of the current executing svchost binary
+**
+** @return the length of the path string in bytes
+**/
+
+int svchost_path(char buf[], int bufsize)
 {
-		
+#if defined(WINDOWS_SERVICE)
+	DWORD length;
+	char *n;
+	char fullpath[256]
+
+	length = GetModuleFileName(0, fullpath, 256);
+	if(!length){
+		printf("GetModuleFileName failed\n");	
+		return;
+	}
+
+	n = fullpath+length-1;
+
+	for(int i = length; i; i--){
+		n--;
+		if(*n == '\\') break;	
+	}
+	length = (int)(n - fullpath);
+	memcpy(buf, n, length);
+	buf[length] = '\0';
+	return length;
+#elif defined(LINUX_SERVICE)
+#endif
+}
+
+
+void svchost_change_file_ext(char filename[], int bufsize, const char *ext)
+{
+	
+}
+
+
+//get the binary and look for the config file here
+void svchost_load_config_file()
+{
+	int length;
+	char filename_buf[16];
+	char path_buf[256];
+
+	length = svchost_filename(filename_buf, 16);
+	printf("file(%d): %s\n", length, filename_buf);
+
+	length = svchost_path(path_buf, 256);
+	printf("path (%d): %s\n", length, path_buf);
+
+	
+	
+	//CreateFileA(
+	//json_doc 	
 }
 
 
@@ -477,13 +542,10 @@ SERVICEHOST_EXPORT void svchost_main(int argc, char *argv[])
 	//n = json_string + tokens[0].start;
 	//printf("Here %s\n", 2, n);
 
-	char buf[256];
 
 
-	//get the binary and look for the config file here
-	get_bin_path(buf, 256);
+	svchost_load_config_file();	
 
-	printf("path: %s\n", buf);
 	 
 
 	//StartServiceCtrlDispatcher(dispatch_table);
