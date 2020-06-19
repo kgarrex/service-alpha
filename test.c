@@ -3,6 +3,6 @@
 
 int main(int argc, char **argv)
 {
-	svchost_main(argc, argv);
+	svchost_process_main(argc, argv);
 	return 1;
 }

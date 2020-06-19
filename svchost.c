@@ -464,7 +464,7 @@ int svchost_path(char buf[], int bufsize)
 #if defined(WINDOWS_SERVICE)
 	DWORD length;
 	char *n;
-	char fullpath[256]
+	char fullpath[256];
 
 	length = GetModuleFileName(0, fullpath, 256);
 	if(!length){
@@ -507,7 +507,6 @@ void svchost_load_config_file()
 	printf("path (%d): %s\n", length, path_buf);
 
 	
-	
 	//CreateFileA(
 	//json_doc 	
 }
@@ -517,7 +516,7 @@ void svchost_load_config_file()
 ** @param
 **/
 
-SERVICEHOST_EXPORT void svchost_main(int argc, char *argv[])
+SERVICEHOST_EXPORT void svchost_process_main(int argc, char *argv[])
 {
 
 	if(argc > 1){
