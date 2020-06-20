@@ -511,6 +511,26 @@ void svchost_load_config_file()
 	//json_doc 	
 }
 
+//26 letters in the alphabet, max number of options
+
+
+struct cmd_opt {
+	char *tag;
+	char *label;
+	int (*proc)();
+}
+
+
+struct cmd_subcmd {
+	char *tag; //label
+	struct cmd_opt opt[26];
+};
+
+int process_main(int subcmdc, struct cmd_subcmd, int argc, char *argv[])
+{
+		
+}
+
 
 /**
 ** @param
